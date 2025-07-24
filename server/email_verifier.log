@@ -1,0 +1,90 @@
+2025-07-24 13:33:11,450 - __main__ - INFO - Starting Professional Email Verification Server
+2025-07-24 13:33:11,450 - __main__ - INFO - Mailboxlayer API configured: True
+2025-07-24 13:33:11,451 - __main__ - INFO - Server ready for email verification requests
+2025-07-24 13:33:11,498 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.230.118:5000
+2025-07-24 13:33:11,499 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-24 13:38:00,269 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:38:00] "GET /health HTTP/1.1" 200 -
+2025-07-24 13:41:34,124 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:34] "GET /health HTTP/1.1" 200 -
+2025-07-24 13:41:39,378 - __main__ - INFO - Verification request for support@google.com from 127.0.0.1
+2025-07-24 13:41:39,379 - __main__ - INFO - Verifying email: support@google.com
+2025-07-24 13:41:40,188 - __main__ - INFO - Verification complete for support@google.com: Role Account (0.81s)
+2025-07-24 13:41:40,190 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:40] "GET /verify?email=support@google.com HTTP/1.1" 200 -
+2025-07-24 13:41:42,246 - __main__ - INFO - Verification request for info@microsoft.com from 127.0.0.1
+2025-07-24 13:41:42,247 - __main__ - INFO - Verifying email: info@microsoft.com
+2025-07-24 13:41:42,958 - __main__ - INFO - Verification complete for info@microsoft.com: Role Account (0.71s)
+2025-07-24 13:41:42,959 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:42] "GET /verify?email=info@microsoft.com HTTP/1.1" 200 -
+2025-07-24 13:41:45,035 - __main__ - INFO - Verification request for this-email-definitely-does-not-exist@gmail.com from 127.0.0.1
+2025-07-24 13:41:45,036 - __main__ - INFO - Verifying email: this-email-definitely-does-not-exist@gmail.com
+2025-07-24 13:41:45,819 - __main__ - INFO - Verification complete for this-email-definitely-does-not-exist@gmail.com: Undeliverable (0.78s)
+2025-07-24 13:41:45,821 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:45] "GET /verify?email=this-email-definitely-does-not-exist@gmail.com HTTP/1.1" 200 -
+2025-07-24 13:41:47,884 - __main__ - INFO - Verification request for malformed-email from 127.0.0.1
+2025-07-24 13:41:47,884 - __main__ - INFO - Verification complete for malformed-email: Invalid (0.00s)
+2025-07-24 13:41:47,885 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:47] "GET /verify?email=malformed-email HTTP/1.1" 200 -
+2025-07-24 13:41:49,935 - __main__ - INFO - Verification request for info@digitalocean.com from 127.0.0.1
+2025-07-24 13:41:49,936 - __main__ - INFO - Verifying email: info@digitalocean.com
+2025-07-24 13:41:50,636 - __main__ - INFO - Verification complete for info@digitalocean.com: Role Account (0.70s)
+2025-07-24 13:41:50,637 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:50] "GET /verify?email=info@digitalocean.com HTTP/1.1" 200 -
+2025-07-24 13:41:52,681 - __main__ - INFO - Verification request for info@codezela.com from 127.0.0.1
+2025-07-24 13:41:52,681 - __main__ - INFO - Verifying email: info@codezela.com
+2025-07-24 13:41:53,367 - __main__ - INFO - Verification complete for info@codezela.com: Role Account (0.69s)
+2025-07-24 13:41:53,368 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:53] "GET /verify?email=info@codezela.com HTTP/1.1" 200 -
+2025-07-24 13:41:55,453 - __main__ - INFO - Verification request for hi@sayuru.dev from 127.0.0.1
+2025-07-24 13:41:55,454 - __main__ - INFO - Verifying email: hi@sayuru.dev
+2025-07-24 13:41:56,777 - __main__ - INFO - Verification complete for hi@sayuru.dev: Valid (1.32s)
+2025-07-24 13:41:56,778 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:56] "GET /verify?email=hi@sayuru.dev HTTP/1.1" 200 -
+2025-07-24 13:41:58,838 - __main__ - INFO - Verification request for test@example.com from 127.0.0.1
+2025-07-24 13:41:58,839 - __main__ - INFO - Verifying email: test@example.com
+2025-07-24 13:41:59,543 - __main__ - INFO - Verification complete for test@example.com: Undeliverable (0.70s)
+2025-07-24 13:41:59,544 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:41:59] "GET /verify?email=test@example.com HTTP/1.1" 200 -
+2025-07-24 13:42:01,583 - __main__ - INFO - Verification request for contact@python.org from 127.0.0.1
+2025-07-24 13:42:01,583 - __main__ - INFO - Verifying email: contact@python.org
+2025-07-24 13:42:02,305 - __main__ - INFO - Verification complete for contact@python.org: Undeliverable (0.72s)
+2025-07-24 13:42:02,306 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:42:02] "GET /verify?email=contact@python.org HTTP/1.1" 200 -
+2025-07-24 13:42:13,083 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:42:13] "GET /health HTTP/1.1" 200 -
+2025-07-24 13:47:58,167 - __main__ - INFO - Starting Professional Email Verification Server
+2025-07-24 13:47:58,168 - __main__ - INFO - Mailboxlayer API configured: True
+2025-07-24 13:47:58,168 - __main__ - INFO - Server ready for email verification requests
+2025-07-24 13:47:58,190 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.230.118:5000
+2025-07-24 13:47:58,190 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-24 13:48:12,908 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:12] "GET /health HTTP/1.1" 200 -
+2025-07-24 13:48:14,965 - __main__ - INFO - Verification request for support@google.com from 127.0.0.1
+2025-07-24 13:48:14,965 - __main__ - INFO - Verifying email: support@google.com
+2025-07-24 13:48:16,269 - __main__ - INFO - Verification complete for support@google.com: Valid (1.31s)
+2025-07-24 13:48:16,271 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:16] "GET /verify?email=support@google.com HTTP/1.1" 200 -
+2025-07-24 13:48:18,330 - __main__ - INFO - Verification request for info@microsoft.com from 127.0.0.1
+2025-07-24 13:48:18,330 - __main__ - INFO - Verifying email: info@microsoft.com
+2025-07-24 13:48:19,239 - __main__ - INFO - Verification complete for info@microsoft.com: Valid (0.91s)
+2025-07-24 13:48:19,239 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:19] "GET /verify?email=info@microsoft.com HTTP/1.1" 200 -
+2025-07-24 13:48:21,287 - __main__ - INFO - Verification request for this-email-definitely-does-not-exist@gmail.com from 127.0.0.1
+2025-07-24 13:48:21,288 - __main__ - INFO - Verifying email: this-email-definitely-does-not-exist@gmail.com
+2025-07-24 13:48:22,104 - __main__ - INFO - Verification complete for this-email-definitely-does-not-exist@gmail.com: Invalid (0.82s)
+2025-07-24 13:48:22,105 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:22] "GET /verify?email=this-email-definitely-does-not-exist@gmail.com HTTP/1.1" 200 -
+2025-07-24 13:48:24,188 - __main__ - INFO - Verification request for malformed-email from 127.0.0.1
+2025-07-24 13:48:24,189 - __main__ - INFO - Verification complete for malformed-email: Invalid (0.00s)
+2025-07-24 13:48:24,190 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:24] "GET /verify?email=malformed-email HTTP/1.1" 200 -
+2025-07-24 13:48:26,254 - __main__ - INFO - Verification request for info@digitalocean.com from 127.0.0.1
+2025-07-24 13:48:26,255 - __main__ - INFO - Verifying email: info@digitalocean.com
+2025-07-24 13:48:27,840 - __main__ - INFO - Verification complete for info@digitalocean.com: Valid (1.59s)
+2025-07-24 13:48:27,841 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:27] "GET /verify?email=info@digitalocean.com HTTP/1.1" 200 -
+2025-07-24 13:48:29,907 - __main__ - INFO - Verification request for info@codezela.com from 127.0.0.1
+2025-07-24 13:48:29,907 - __main__ - INFO - Verifying email: info@codezela.com
+2025-07-24 13:48:30,655 - __main__ - INFO - Verification complete for info@codezela.com: Valid (0.75s)
+2025-07-24 13:48:30,656 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:30] "GET /verify?email=info@codezela.com HTTP/1.1" 200 -
+2025-07-24 13:48:32,702 - __main__ - INFO - Verification request for hi@sayuru.dev from 127.0.0.1
+2025-07-24 13:48:32,703 - __main__ - INFO - Verifying email: hi@sayuru.dev
+2025-07-24 13:48:33,416 - __main__ - INFO - Verification complete for hi@sayuru.dev: Valid (0.71s)
+2025-07-24 13:48:33,417 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:33] "GET /verify?email=hi@sayuru.dev HTTP/1.1" 200 -
+2025-07-24 13:48:35,503 - __main__ - INFO - Verification request for test@example.com from 127.0.0.1
+2025-07-24 13:48:35,504 - __main__ - INFO - Verifying email: test@example.com
+2025-07-24 13:48:37,257 - __main__ - INFO - Verification complete for test@example.com: Invalid (1.75s)
+2025-07-24 13:48:37,258 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:37] "GET /verify?email=test@example.com HTTP/1.1" 200 -
+2025-07-24 13:48:39,312 - __main__ - INFO - Verification request for contact@python.org from 127.0.0.1
+2025-07-24 13:48:39,312 - __main__ - INFO - Verifying email: contact@python.org
+2025-07-24 13:48:40,035 - __main__ - INFO - Verification complete for contact@python.org: Invalid (0.72s)
+2025-07-24 13:48:40,037 - werkzeug - INFO - 127.0.0.1 - - [24/Jul/2025 13:48:40] "GET /verify?email=contact@python.org HTTP/1.1" 200 -

@@ -1,0 +1,10 @@
+email,processing_time,reason,server_version,status,verification_method
+support@google.com,0.81,Role-based email address,1.0,Role Account,MAILBOXLAYER_API
+info@microsoft.com,0.71,"Role-based email, delivery uncertain",1.0,Role Account,MAILBOXLAYER_API
+this-email-definitely-does-not-exist@gmail.com,0.78,Email verification failed,1.0,Undeliverable,MAILBOXLAYER_API
+malformed-email,0.0,Email format is incorrect,1.0,Invalid,MAILBOXLAYER_API
+info@digitalocean.com,0.7,Role-based email address,1.0,Role Account,MAILBOXLAYER_API
+info@codezela.com,0.69,"Role-based email, delivery uncertain",1.0,Role Account,MAILBOXLAYER_API
+hi@sayuru.dev,1.32,Email address is valid and deliverable,1.0,Valid,MAILBOXLAYER_API
+test@example.com,0.7,Email verification failed,1.0,Undeliverable,MAILBOXLAYER_API
+contact@python.org,0.72,No mail servers found for domain,1.0,Undeliverable,MAILBOXLAYER_API

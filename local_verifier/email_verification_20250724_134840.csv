@@ -1,0 +1,10 @@
+email,status,details
+support@google.com,Valid,Role-based email address
+info@microsoft.com,Valid,"Role-based email, verification uncertain"
+this-email-definitely-does-not-exist@gmail.com,Invalid,Email verification failed
+malformed-email,Invalid,Email format is incorrect
+info@digitalocean.com,Valid,Role-based email address
+info@codezela.com,Valid,"Role-based email, verification uncertain"
+hi@sayuru.dev,Valid,Email verified and deliverable
+test@example.com,Invalid,Email verification failed
+contact@python.org,Invalid,Domain has no mail servers
