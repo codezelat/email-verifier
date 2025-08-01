@@ -1,5 +1,383 @@
-# Local Verifier Requirements
-# Client-side dependencies for email verification testing
+import os 
+import re 
+import socket 
+import smtplib 
+import dns.resolver 
+from flask import Flask, request, jsonify 
+from dotenv import load_dotenv 
+import logging
+from functools import wraps
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
-requests>=2.31.0
-python-dotenv>=1.0.0
+# --- Basic Setup --- 
+load_dotenv() 
+app = Flask(__name__) 
+
+# Configure logging with detailed format
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# --- Configuration --- 
+SECRET_API_KEY = os.getenv("SECRET_API_KEY", "change-this-secret-key") 
+SMTP_TIMEOUT = 15  # Per connection timeout
+DNS_TIMEOUT = 10   # DNS timeout
+MAX_VERIFICATION_TIME = 120  # Maximum 2 minutes per email verification
+SENDER_EMAIL = "verify@codezela.lk" 
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") 
+
+# Alternative sender emails to try if one gets blocked
+SENDER_EMAILS = [
+    "verify@codezela.lk",
+    "test@example.org",
+    "noreply@verification.com",
+    "check@mailverify.org"
+]
+
+# Timeout decorator for functions (Windows-compatible)
+def with_timeout(seconds):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            def target():
+                return func(*args, **kwargs)
+            
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(target)
+                try:
+                    return future.result(timeout=seconds)
+                except FutureTimeoutError:
+                    logger.warning(f"Function {func.__name__} timed out after {seconds} seconds")
+                    return None
+        return wrapper
+    return decorator
+
+# --- Verification Logic --- 
+@with_timeout(10)  # DNS timeout
+def get_mx_records(domain: str) -> list: 
+    """Looks up and returns sorted MX records for a domain.""" 
+    try: 
+        logger.info(f"ðŸ” Looking up MX records for domain: {domain}")
+        records = dns.resolver.resolve(domain, 'MX') 
+        mx_servers = sorted([(r.preference, str(r.exchange).rstrip('.')) for r in records]) 
+        servers = [server for pref, server in mx_servers if server]
+        logger.info(f"âœ… Found {len(servers)} MX servers for {domain}: {servers}")
+        return servers
+    except dns.resolver.NXDOMAIN:
+        logger.warning(f"âŒ Domain {domain} does not exist (NXDOMAIN)")
+        return []
+    except dns.resolver.NoAnswer:
+        logger.warning(f"âš ï¸ No MX records found for {domain}")
+        return []
+    except Exception as e:
+        logger.warning(f"âŒ DNS lookup failed for {domain}: {e}")
+        return []
+
+def try_smtp_connection(server, email, sender_email, attempt_num, total_servers):
+    """Try SMTP connection with detailed logging"""
+    logger.info(f"ðŸ”Œ Attempt {attempt_num}/{total_servers}: Connecting to {server} for {email}")
+    
+    try:
+        # Create SMTP connection with detailed steps
+        smtp = smtplib.SMTP(timeout=SMTP_TIMEOUT)
+        
+        # Step 1: Connect
+        logger.info(f"ðŸ“¡ Connecting to {server}:25...")
+        connect_result = smtp.connect(server, 25)
+        logger.info(f"âœ… Connected to {server}: {connect_result}")
+        
+        # Step 2: EHLO/HELO
+        try:
+            ehlo_result = smtp.ehlo()
+            logger.info(f"ðŸ‘‹ EHLO successful on {server}: {ehlo_result}")
+        except Exception as e:
+            logger.info(f"âš ï¸ EHLO failed on {server}, trying HELO: {e}")
+            helo_result = smtp.helo()
+            logger.info(f"ðŸ‘‹ HELO successful on {server}: {helo_result}")
+        
+        # Step 3: MAIL FROM
+        logger.info(f"ðŸ“§ Sending MAIL FROM {sender_email} to {server}")
+        mail_result = smtp.mail(sender_email)
+        logger.info(f"ðŸ“¤ MAIL FROM response: {mail_result}")
+        
+        # Step 4: RCPT TO (The actual verification)
+        logger.info(f"ðŸŽ¯ Sending RCPT TO {email} to {server}")
+        code, message = smtp.rcpt(email)
+        
+        # Decode message if it's bytes
+        if isinstance(message, bytes):
+            message_str = message.decode('utf-8', errors='ignore')
+        else:
+            message_str = str(message)
+        
+        logger.info(f"ðŸ“¨ RCPT TO response: Code {code}, Message: '{message_str}'")
+        
+        # Clean up
+        try:
+            smtp.quit()
+        except Exception:
+            smtp.close()
+        
+        # Analyze the response
+        if code == 250:
+            logger.info(f"âœ… EMAIL VERIFIED: {email} is DELIVERABLE (accepted by {server})")
+            return "Deliverable", f"Email verified by {server} (Code: {code})"
+        elif code in [550, 551, 553, 554]:
+            logger.info(f"âŒ EMAIL REJECTED: {email} is UNDELIVERABLE (rejected by {server}, Code: {code})")
+            return "Undeliverable", f"Email rejected by {server} (Code: {code}) - {message_str}"
+        elif code in [450, 451, 452]:
+            logger.info(f"â³ TEMPORARY FAILURE: {email} verification failed temporarily (Code: {code})")
+            return "temp_failure", f"Temporary failure on {server} (Code: {code}) - {message_str}"
+        elif code == 421:
+            logger.info(f"ðŸš« SERVICE UNAVAILABLE: {server} service not available (Code: {code})")
+            return "service_unavailable", f"Service unavailable on {server} (Code: {code}) - {message_str}"
+        else:
+            logger.info(f"â“ UNKNOWN RESPONSE: {email} got unexpected code {code} from {server}")
+            return "unknown_code", f"Unknown response code {code} from {server} - {message_str}"
+            
+    except smtplib.SMTPRecipientsRefused as e:
+        logger.warning(f"âŒ RECIPIENTS REFUSED: {email} explicitly refused by {server}: {e}")
+        return "Undeliverable", f"Email explicitly refused by {server}: {e}"
+        
+    except smtplib.SMTPSenderRefused as e:
+        logger.warning(f"ðŸš« SENDER REFUSED: Sender {sender_email} refused by {server}: {e}")
+        return "sender_refused", f"Sender refused by {server}: {e}"
+        
+    except smtplib.SMTPServerDisconnected as e:
+        logger.warning(f"ðŸ”Œ SERVER DISCONNECTED: {server} disconnected: {e}")
+        return "disconnected", f"Server {server} disconnected: {e}"
+        
+    except socket.timeout:
+        logger.warning(f"â° TIMEOUT: Connection to {server} timed out after {SMTP_TIMEOUT}s")
+        return "timeout", f"Connection timeout to {server}"
+        
+    except socket.error as e:
+        logger.warning(f"ðŸŒ NETWORK ERROR: Socket error connecting to {server}: {e}")
+        return "network_error", f"Network error connecting to {server}: {e}"
+        
+    except Exception as e:
+        logger.warning(f"âš ï¸ UNEXPECTED ERROR: {server} caused unexpected error: {e}")
+        return "unexpected_error", f"Unexpected error with {server}: {e}"
+
+def verify_email_smtp_advanced(email: str, mx_servers: list) -> tuple[str, str]: 
+    """Advanced SMTP verification with multiple strategies"""
+    if not mx_servers: 
+        return "Undeliverable", "No MX records found for domain" 
+    
+    logger.info(f"ðŸš€ Starting ADVANCED SMTP verification for {email}")
+    logger.info(f"ðŸ“‹ Will try {len(mx_servers)} MX servers: {mx_servers}")
+    
+    # Keep track of all attempts
+    all_attempts = []
+    temp_failures = []
+    
+    # Try multiple sender emails if needed
+    for sender_idx, sender_email in enumerate(SENDER_EMAILS):
+        if len(all_attempts) > 0:
+            # Check if we got any definitive results
+            definitive_results = [a for a in all_attempts if a.get("status") in ["Deliverable", "Undeliverable"]]
+            if definitive_results:
+                break
+            
+        if sender_idx > 0:
+            logger.info(f"ðŸ”„ Trying with different sender email: {sender_email}")
+        
+        # Try each MX server with this sender
+        for i, server in enumerate(mx_servers[:6]):  # Try up to 6 servers
+            attempt_info = {
+                "server": server,
+                "sender": sender_email,
+                "attempt": len(all_attempts) + 1,
+                "result": None,
+                "status": None,
+                "reason": None
+            }
+            
+            status, reason = try_smtp_connection(server, email, sender_email, i + 1, len(mx_servers[:6]))
+            
+            attempt_info["status"] = status
+            attempt_info["reason"] = reason
+            all_attempts.append(attempt_info)
+            
+            # Categorize results
+            if status == "Deliverable":
+                logger.info(f"ðŸŽ‰ DEFINITIVE RESULT: {email} is DELIVERABLE!")
+                return status, reason
+            elif status == "Undeliverable":
+                logger.info(f"ðŸ’€ DEFINITIVE RESULT: {email} is UNDELIVERABLE!")
+                return status, reason
+            elif status == "temp_failure":
+                temp_failures.append(attempt_info)
+            elif status in ["sender_refused"]:
+                # Try next sender email
+                logger.info("ðŸ”„ Sender refused, will try different sender email")
+                break
+            
+            # Small delay between attempts to avoid overwhelming servers
+            time.sleep(1)
+        
+        # If we got sender refused, try next sender
+        if all_attempts and all_attempts[-1]["status"] == "sender_refused":
+            continue
+    
+    # Analyze all attempts
+    logger.info(f"ðŸ“Š Completed {len(all_attempts)} SMTP attempts for {email}")
+    
+    # If we have temporary failures, the email might exist
+    if temp_failures:
+        logger.info(f"â³ Got {len(temp_failures)} temporary failures - email likely exists but verification blocked")
+        return "Likely Deliverable", f"Got temporary failures from {len(temp_failures)} servers - email probably exists but servers are being protective"
+    
+    # If we got mostly timeouts/network errors, it's inconclusive
+    timeouts = sum(1 for a in all_attempts if "timeout" in a.get("status", ""))
+    network_errors = sum(1 for a in all_attempts if "network_error" in a.get("status", ""))
+    
+    if timeouts + network_errors >= len(all_attempts) * 0.8:  # 80% or more are connection issues
+        logger.info(f"ðŸŒ Mostly connection issues ({timeouts} timeouts, {network_errors} network errors)")
+        return "Unknown", "Could not verify due to connection issues with mail servers"
+    
+    # Default case
+    logger.info(f"â“ Verification inconclusive for {email}")
+    return "Unknown", f"Could not definitively verify after {len(all_attempts)} attempts across {len(mx_servers)} servers"
+
+# --- API Endpoint --- 
+@app.route('/verify', methods=['GET']) 
+def handle_verification_request(): 
+    """Handles API requests for email verification - MAXIMUM FUNCTIONALITY.""" 
+    start_time = time.time()
+    
+    # Authenticate the request
+    api_key = request.headers.get('X-API-Key') or request.headers.get('X-API-KEY')
+    if not api_key or api_key != SECRET_API_KEY: 
+        return jsonify({"error": "Unauthorized"}), 401 
+ 
+    # Get email from query parameter 
+    email = request.args.get('email') 
+    if not email: 
+        return jsonify({"error": "Missing 'email' parameter"}), 400 
+
+    logger.info(f"ðŸŽ¯ MAXIMUM FUNCTIONALITY VERIFICATION for: {email}")
+    logger.info(f"â° Will take as long as needed (max {MAX_VERIFICATION_TIME}s) to get the real answer")
+ 
+    # Basic format validation only
+    if not EMAIL_REGEX.fullmatch(email): 
+        status, reason = "Invalid Format", "Incorrect email format" 
+        processing_time = time.time() - start_time
+    else: 
+        domain = email.split('@')[1]
+        logger.info(f"ðŸ·ï¸ Extracted domain: {domain}")
+        
+        # Get MX records
+        mx_servers = get_mx_records(domain) 
+        if mx_servers is None:  # DNS timeout
+            status, reason = "Unknown", "DNS lookup timed out"
+        elif not mx_servers:  # No MX records
+            status, reason = "Undeliverable", "Domain has no mail servers (no MX records)"
+        else:
+            # Do ADVANCED SMTP verification with maximum timeout
+            logger.info(f"ðŸš€ Proceeding with ADVANCED SMTP verification for {email}")
+            
+            # Use a wrapper with maximum timeout
+            @with_timeout(MAX_VERIFICATION_TIME)
+            def do_verification():
+                return verify_email_smtp_advanced(email, mx_servers)
+            
+            result = do_verification()
+            if result is None:  # Maximum timeout reached
+                status, reason = "Unknown", f"Verification timed out after {MAX_VERIFICATION_TIME} seconds"
+            else:
+                status, reason = result
+
+    processing_time = time.time() - start_time
+    logger.info(f"ðŸ VERIFICATION COMPLETE for {email}")
+    logger.info(f"ðŸ“Š Final Result: {status} - {reason}")
+    logger.info(f"â±ï¸ Total Time: {processing_time:.2f} seconds")
+ 
+    return jsonify({
+        "email": email, 
+        "status": status, 
+        "reason": reason,
+        "processing_time": round(processing_time, 2),
+        "verification_mode": "MAXIMUM_FUNCTIONALITY - Will take as long as needed to get real answer",
+        "max_time_allowed": MAX_VERIFICATION_TIME
+    }) 
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Simple health check endpoint."""
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": time.time(),
+        "mode": "MAXIMUM_FUNCTIONALITY",
+        "max_verification_time": MAX_VERIFICATION_TIME
+    })
+
+@app.route('/bulk-verify', methods=['POST'])
+def bulk_verification():
+    """Bulk email verification endpoint"""
+    api_key = request.headers.get('X-API-Key') or request.headers.get('X-API-KEY')
+    if not api_key or api_key != SECRET_API_KEY: 
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    if not data or 'emails' not in data:
+        return jsonify({"error": "Missing 'emails' array in request body"}), 400
+    
+    emails = data['emails']
+    if not isinstance(emails, list) or len(emails) > 50:  # Limit to 50 emails
+        return jsonify({"error": "Invalid emails array (max 50 emails)"}), 400
+    
+    results = []
+    start_time = time.time()
+    
+    for email in emails:
+        if not isinstance(email, str):
+            continue
+            
+        logger.info(f"ðŸŽ¯ Bulk verification processing: {email}")
+        
+        # Basic format validation
+        if not EMAIL_REGEX.fullmatch(email): 
+            status, reason = "Invalid Format", "Incorrect email format" 
+        else: 
+            domain = email.split('@')[1]
+            mx_servers = get_mx_records(domain) 
+            if mx_servers is None:
+                status, reason = "Unknown", "DNS lookup timed out"
+            elif not mx_servers:
+                status, reason = "Undeliverable", "Domain has no mail servers (no MX records)"
+            else:
+                # Use shorter timeout for bulk verification
+                @with_timeout(60)  # 1 minute per email for bulk
+                def do_bulk_verification():
+                    return verify_email_smtp_advanced(email, mx_servers)
+                
+                result = do_bulk_verification()
+                if result is None:
+                    status, reason = "Unknown", "Verification timed out"
+                else:
+                    status, reason = result
+        
+        results.append({
+            "email": email,
+            "status": status,
+            "reason": reason
+        })
+    
+    processing_time = time.time() - start_time
+    
+    return jsonify({
+        "results": results,
+        "total_processed": len(results),
+        "processing_time": round(processing_time, 2),
+        "verification_mode": "BULK_MAXIMUM_FUNCTIONALITY"
+    })
+
+if __name__ == '__main__': 
+    print("ðŸš€ Starting Email Verifier in MAXIMUM FUNCTIONALITY mode")
+    print("ðŸ“§ This will do REAL verification for ALL emails")
+    print("â° Processing will take as long as needed to get the REAL answer")
+    print(f"â³ Maximum time per email: {MAX_VERIFICATION_TIME} seconds")
+    print("ðŸŽ¯ Focus: FUNCTIONALITY over speed")
+    print()
+    app.run(host='0.0.0.0', port=5000, debug=False)

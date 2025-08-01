@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""
-Professional Email Verification Client
-Clean CSV output: email, status, details
-"""
 import csv
 import json
 import os
 from datetime import datetime
+
 import requests
 from dotenv import load_dotenv
 
@@ -25,7 +22,7 @@ class EmailVerificationClient:
             "User-Agent": "EmailVerificationClient/1.0"
         })
     
-    def verify_emails_from_file(self, filename: str = "emails.json") -> list:
+    def verify_emails_from_file(self, filename: str = "./emails.json") -> list:
         """Load emails from JSON and verify them"""
         try:
             with open(filename, 'r') as f:
@@ -56,7 +53,7 @@ class EmailVerificationClient:
                     results.append({
                         "email": data.get("email", email),
                         "status": data.get("status", "Error"),
-                        "details": data.get("details", "Unknown error")
+                        "details": data.get("reason", "Unknown error")
                     })
                 else:
                     results.append({
@@ -104,14 +101,20 @@ class EmailVerificationClient:
     def print_summary(self, results: list):
         """Print verification summary"""
         total = len(results)
-        valid_count = sum(1 for r in results if r["status"] == "Valid")
-        invalid_count = sum(1 for r in results if r["status"] == "Invalid")
+        deliverable_count = sum(1 for r in results if r["status"] == "Deliverable")
+        undeliverable_count = sum(1 for r in results if r["status"] == "Undeliverable")
+        likely_deliverable_count = sum(1 for r in results if r["status"] == "Likely Deliverable")
+        unknown_count = sum(1 for r in results if r["status"] == "Unknown")
+        invalid_format_count = sum(1 for r in results if r["status"] == "Invalid Format")
         error_count = sum(1 for r in results if r["status"] == "Error")
         
         print("\nVerification Summary:")
         print(f"Total emails: {total}")
-        print(f"Valid: {valid_count}")
-        print(f"Invalid: {invalid_count}")
+        print(f"Deliverable: {deliverable_count}")
+        print(f"Likely Deliverable: {likely_deliverable_count}")
+        print(f"Undeliverable: {undeliverable_count}")
+        print(f"Invalid Format: {invalid_format_count}")
+        print(f"Unknown: {unknown_count}")
         print(f"Errors: {error_count}")
 
 def main():

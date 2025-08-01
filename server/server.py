@@ -107,28 +107,28 @@ class EmailVerificationService:
         role = data.get('role', False)
         disposable = data.get('disposable', False)
         
-        # Determine status based on results - simplified to Valid/Invalid
+        # Determine status based on results
         if not format_valid:
-            return "Invalid", "Invalid email format"
+            return "Invalid", "Email format is invalid"
         
         if disposable:
-            return "Invalid", "Temporary or disposable email address"
+            return "Disposable", "Temporary/disposable email address"
         
         if not mx_found:
-            return "Invalid", "Domain has no mail servers"
+            return "Undeliverable", "No mail servers found for domain"
         
         if smtp_check:
             if catch_all:
-                return "Valid", "Domain accepts all emails (catch-all)"
+                return "Catch-All", "Domain accepts all email addresses"
             elif role:
-                return "Valid", "Role-based email address"
+                return "Role Account", "Role-based email address"
             else:
-                return "Valid", "Email verified and deliverable"
+                return "Valid", "Email address is valid and deliverable"
         else:
             if role:
-                return "Valid", "Role-based email, verification uncertain"
+                return "Role Account", "Role-based email, delivery uncertain"
             else:
-                return "Invalid", "Email verification failed"
+                return "Undeliverable", "Email verification failed"
 
 # Initialize verification service
 verification_service = EmailVerificationService(MAILBOXLAYER_API_KEY)
@@ -166,7 +166,10 @@ def verify_email():
     return jsonify({
         "email": email,
         "status": status,
-        "details": reason
+        "reason": reason,
+        "processing_time": round(processing_time, 2),
+        "verification_method": "MAILBOXLAYER_API",
+        "server_version": "1.0"
     })
 
 @app.route('/bulk-verify', methods=['POST'])
@@ -206,7 +209,7 @@ def bulk_verify_emails():
         results.append({
             "email": email,
             "status": status,
-            "details": reason
+            "reason": reason
         })
         
         # Rate limiting - small delay between requests
@@ -216,7 +219,10 @@ def bulk_verify_emails():
     logger.info(f"Bulk verification complete: {len(results)} emails in {processing_time:.2f}s")
     
     return jsonify({
-        "results": results
+        "results": results,
+        "total_processed": len(results),
+        "processing_time": round(processing_time, 2),
+        "verification_method": "MAILBOXLAYER_BULK"
     })
 
 @app.route('/health', methods=['GET'])
