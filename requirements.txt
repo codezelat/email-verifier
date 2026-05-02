@@ -1,7 +1,15 @@
-# Email Verifier - Unified Requirements
+# Email Verifier - Production Requirements
 # Install with: pip install -r requirements.txt
 
-# Server dependencies
+# Server
 flask>=2.3.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+tenacity>=8.2.0
+
+# Production WSGI
+gunicorn>=21.2.0
+
+# Testing
+pytest>=7.4.0
+pytest-mock>=3.11.0

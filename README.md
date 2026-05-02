@@ -9,6 +9,8 @@ Professional email verification system with a Flask-based API server and a CLI c
 - **Batch processing** (50 emails per request) for performance
 - **Real-time validation** with multiple status categories
 - **Health check endpoint** for monitoring
+- **Retry logic with exponential backoff** for transient API failures
+- **Production-ready WSGI support** via Gunicorn
 
 ## Architecture
 
@@ -29,8 +31,8 @@ git clone https://github.com/codezelat/email-verifier.git
 cd email-verifier
 
 # Create virtual environment
-python3 -m venv env
-source env/bin/activate  # On Windows: .\env\Scripts\Activate.ps1
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
 
 # Install dependencies
 pip install -r requirements.txt
@@ -52,13 +54,26 @@ MAILBOXLAYER_API_KEY=your-mailboxlayer-key-here
 PRIVATE_API_URL=http://localhost:5001
 ```
 
+### Mailboxlayer URL Note
+
+- **Free tier**: Set `MAILBOXLAYER_BASE_URL=http://apilayer.net/api/check` (HTTP only)
+- **Paid tier**: Uses `https://apilayer.net/api/check` by default (HTTPS)
+
 ## Usage
 
 ### 1. Start the Server
 
+**Development:**
+
 ```bash
 cd server
 python server.py
+```
+
+**Production (Gunicorn):**
+
+```bash
+gunicorn -w 4 -b 0.0.0.0:5001 server.wsgi:app
 ```
 
 The server runs on port `5001` by default (configurable via `PORT` env var).
@@ -80,6 +95,12 @@ Edit `local_verifier/emails.json`:
 ```bash
 cd local_verifier
 python main.py
+```
+
+Or with a custom file:
+
+```bash
+python main.py /path/to/your/emails.json
 ```
 
 Results are exported to a timestamped CSV file (e.g., `email_verification_20260502_120000.csv`).
@@ -109,6 +130,18 @@ curl -X POST "http://localhost:5001/bulk-verify" \
   -d '{"emails": ["a@example.com", "b@example.com"]}'
 ```
 
+### Example: Oversized Bulk Request
+
+If you send more than 50 emails, you will receive a `413 Payload Too Large` with guidance:
+
+```json
+{
+  "error": "Bulk limit exceeded",
+  "details": "Received 75 emails. Maximum allowed is 50 per request.",
+  "suggestion": "Split your list into chunks of 50 and send multiple requests."
+}
+```
+
 ## Verification Statuses
 
 | Status | Meaning |
@@ -125,6 +158,21 @@ curl -X POST "http://localhost:5001/bulk-verify" \
 | `Network Error` | Connection failure |
 | `System Error` | Unexpected internal error |
 
+## Testing
+
+Run the test suite with pytest:
+
+```bash
+pytest tests/ -v
+```
+
+### Test Coverage
+
+- `_parse_verification_result()` — all status branches (Valid, Invalid, Disposable, Catch-All, Role Account, Undeliverable)
+- `export_to_csv()` — file creation, content accuracy, unicode handling, timestamped filenames
+- `print_summary()` — empty results, single status, multiple statuses, unexpected statuses
+- Email list loading and input validation
+
 ## Project Structure
 
 ```
@@ -134,18 +182,61 @@ email-verifier/
 ├── README.md
 ├── requirements.txt          # Unified Python dependencies
 ├── server/
+│   ├── __init__.py
 │   ├── server.py             # Flask API server
-│   └── requirements.txt      # (legacy, use root requirements.txt)
-└── local_verifier/
-    ├── main.py               # CLI client
-    ├── emails.json           # Sample email list
-    └── requirements.txt      # (legacy, use root requirements.txt)
+│   └── wsgi.py               # WSGI entry point for Gunicorn
+├── local_verifier/
+│   ├── __init__.py
+│   ├── main.py               # CLI client
+│   └── emails.json           # Sample email list
+└── tests/
+    ├── __init__.py
+    ├── test_server.py        # Server unit tests
+    └── test_client.py        # Client unit tests
 ```
 
-## Production Considerations
+## Production Deployment
 
-- Use a production WSGI server (e.g., Gunicorn or uWSGI) instead of Flask's dev server
-- Deploy behind a reverse proxy (e.g., Nginx)
-- Use HTTPS for the `PRIVATE_API_URL`
-- Rotate `SECRET_API_KEY` regularly
-- Monitor `/health` endpoint for uptime checks
+### Using Gunicorn
+
+```bash
+gunicorn -w 4 -b 0.0.0.0:5001 server.wsgi:app
+```
+
+Recommended Gunicorn options for production:
+
+```bash
+gunicorn \
+  -w 4 \
+  -b 127.0.0.1:5001 \
+  --access-logfile - \
+  --error-logfile - \
+  --timeout 60 \
+  server.wsgi:app
+```
+
+### Behind Nginx
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+### Environment-Specific Checklist
+
+- [ ] Set `FLASK_DEBUG=False`
+- [ ] Use HTTPS for `PRIVATE_API_URL`
+- [ ] Use `MAILBOXLAYER_BASE_URL=https://apilayer.net/api/check` if on paid tier
+- [ ] Rotate `SECRET_API_KEY` regularly
+- [ ] Monitor `/health` endpoint for uptime checks
+- [ ] Configure `BULK_RATE_LIMIT_DELAY` based on your Mailboxlayer rate limits
+- [ ] Run behind a reverse proxy (Nginx, Caddy, etc.)
