@@ -283,7 +283,7 @@ if __name__ == '__main__':
     logger.info("Server ready for email verification requests")
     
     # Server configuration
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 5001))
     debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
     app.run(

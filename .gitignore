@@ -698,4 +698,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Generated CSV reports
+email_verification_*.csv
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,vs,pycharm,python
