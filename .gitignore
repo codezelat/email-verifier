@@ -701,4 +701,9 @@ $RECYCLE.BIN/
 # Generated CSV reports
 email_verification_*.csv
 
+# Database files
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,vs,pycharm,python
