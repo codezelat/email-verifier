@@ -274,14 +274,6 @@ Error response format:
 | `BULK_MAX_SIZE` | `50` | Max emails per bulk request |
 | `DEBUG` | `false` | Enable debug mode (shows /docs) |
 
-### Mailboxlayer-Free
-
-This API does **not** use Mailboxlayer or any third-party verification service. All verification is done directly:
-
-- SMTP connections go directly to the recipient's MX server
-- DNS queries use Google (8.8.8.8) and Cloudflare (1.1.1.1) resolvers
-- Disposable domains use the `disposable-email-domains` package (5,500+ domains, updated weekly)
-
 ### SMTP Verification
 
 The SMTP engine connects directly to the recipient's MX server on port 25:
